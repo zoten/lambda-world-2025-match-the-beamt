@@ -1,0 +1,93 @@
+# Sonic Pi 4.6.0 prebuilt in a container (Ubuntu 24.04)
+# GUI via host X11 and web; audio via host PulseAudio/PipeWire
+
+FROM ubuntu:24.04
+ARG DEBIAN_FRONTEND=noninteractive
+ARG SONICPI_TAG=v4.6.0
+
+SHELL ["/bin/bash", "-lc"]
+
+# ---------- OS deps (build tools, Qt5, audio, SC server, etc.) ----------
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=private \
+    apt-get update && apt-get install -y --no-install-recommends \
+    # toolchain
+    build-essential git curl ca-certificates cmake pkg-config libssl-dev ninja-build \
+    # Ruby (Sonic Pi GUI glue & tooling)
+    ruby-full ruby-dev \
+    elixir erlang-dev erlang-xmerl \
+    # Qt5 (GUI)
+    qt6-tools-dev qt6-tools-dev-tools libqt6svg6-dev libqt6opengl6-dev \
+    # audio / runtime
+    supercollider-server libscsynth1t64 sc3-plugins-server alsa-utils libasound2-dev libkissfft-float131 \
+    # JACK/Pulse/PipeWire
+    pipewire-jack libspa-0.2-jack qt6-wayland libwayland-dev libxkbcommon-dev libegl1-mesa-dev libx11-dev libxft-dev libxext-dev qpwgraph compton m4 libaubio-dev libpng-dev libboost-all-dev librtmidi-dev \
+    libjack-jackd2-0 pipewire-jack libspa-0.2-jack pulseaudio-utils \
+    liblo-tools \
+    # compiler cache
+    ccache \
+    # good to have in containers
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional: avoid JACK auto-spawning in container; we'll let Sonic Pi talk to Pulse/Jack on host via PulseAudio socket
+ENV JACK_NO_AUDIO_RESERVATION=1
+
+ENV CCACHE_DIR=/ccache
+RUN --mount=type=cache,target=/ccache true
+
+# ---------- Build Sonic Pi 4.6.0 ----------
+WORKDIR /opt
+
+# RUN git clone https://github.com/sonic-pi-net/sonic-pi.git
+# Let's cache the tarball, so this will be rebuilt only on tag change
+ADD https://github.com/sonic-pi-net/sonic-pi/archive/refs/tags/${SONICPI_TAG}.tar.gz /tmp/src.tar.gz
+
+# 3) Unpack & build
+RUN mkdir -p /opt/sonic-pi && \
+    tar -xzf /tmp/src.tar.gz --strip-components=1 -C /opt/sonic-pi && \
+    rm /tmp/src.tar.gz
+
+# WORKDIR /opt/sonic-pi
+# checkout the exact 4.6.0 release tag
+# RUN git fetch --all --tags && git checkout v4.6.0
+
+WORKDIR /opt/sonic-pi/app
+## ENV CC="ccache gcc" CXX="ccache g++"
+# horrible hack for ccache invocation order failure :(
+# the build script calls /usr/bin/ccache -std=gnu++17 g++
+# but ccache wants the compiler argument before any option! 
+RUN ln -s /usr/bin/ccache /usr/local/bin/gcc && \
+    ln -s /usr/bin/ccache /usr/local/bin/g++ && \
+    ln -s /usr/bin/ccache /usr/local/bin/cc  && \
+    ln -s /usr/bin/ccache /usr/local/bin/c++
+ENV PATH="/usr/local/bin:${PATH}"
+RUN ./linux-build-all.sh
+
+# Final binary is created under /opt/sonic-pi/bin but will just call
+# ../app/build/gui/sonic-pi
+
+# RUN ln /opt/sonic-pi/bin/sonic-pi /usr/local/bin/sonic-pi
+
+# Create a non-root user (GUI apps behave better)
+# RUN useradd -ms /bin/bash workshop && mkdir -p /etc/sudoers.d && \
+#     echo "workshop ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/workshop
+# USER workshop
+# WORKDIR /home/workshop
+
+# Prepare folders and permissions. Yes, a lot of permissions
+# RUN mkdir -p /home/app && chown -R ${HOST_UID}:${HOST_GID} /home/app
+RUN mkdir -p /home/app && chmod 0777 /home/app
+RUN mkdir -p /home/app/.local/share/SuperCollider/synthdefs
+
+# Add a tiny beep script for quick sound test
+COPY docker/beep.sh /usr/local/bin/beep.sh
+RUN chmod +x /usr/local/bin/beep.sh
+
+# ---------- Runtime defaults ----------
+# Sonic Pi listens for incoming OSC on 4560 when "Allow OSC from other computers" is enabled in Preferences.
+EXPOSE 4560/udp
+
+# Entry: run Sonic Pi GUI. Audio/Display are provided by host mounts/env (see README run command below).
+# ENTRYPOINT ["/opt/sonic-pi/bin/sonic-pi"]
+ENTRYPOINT ["bash"]

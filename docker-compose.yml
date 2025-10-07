@@ -1,0 +1,76 @@
+services:
+  sonicpi:
+    image: sonic-pi:4.6.0
+    user: "${UID}:${GID}"
+    env_file:
+      - .env
+    container_name: sonicpi
+    # Host networking keeps OSC simple (127.0.0.1:4560)
+    network_mode: "host"
+    # inter process communication needed for sound (/dev/shm, JACK/SHM)
+    ipc: "host"
+    environment:
+      HOME: /home/app
+      SONIC_PI_HOME: /home/app
+      TZ: ${TZ:-UTC}
+      # Audio via Pulse/ PipeWire (Pulse shim)
+      PULSE_SERVER: ${PULSE_SERVER}         # e.g. unix:${XDG_RUNTIME_DIR}/pulse/native
+      # Sonic Pi GUI will detect display from DISPLAY (X11) or WAYLAND_* (Wayland)
+      DISPLAY: ${DISPLAY}                   # used in X11 profile
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}   # used in Wayland profile
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+      XAUTHORITY: /home/app/.docker.xauth
+      QT_QPA_PLATFORM: xcb
+      JACK_NO_AUDIO_RESERVATION: "1"
+    # Optional: Qt hints
+    # QT_QPA_PLATFORM: ${QT_QPA_PLATFORM}
+    cap_add: ["SYS_NICE"]
+    # real time capabilities
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      rtprio: 95
+    volumes:
+      # PulseAudio / PipeWire (Pulse shim) socket and config
+      # - ${XDG_RUNTIME_DIR}/pulse:${XDG_RUNTIME_DIR}/pulse
+      - ${XDG_RUNTIME_DIR}:${XDG_RUNTIME_DIR}
+      - ${HOME}/.config/pulse:/home/app/.config/pulse:ro
+      - /tmp/.docker.xauth:/home/app/.docker.xauth:ro
+      # X11 socket (only used with x11 profile)
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # Wayland socket (only used with wayland profile)
+      - ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}:${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}
+    devices:
+      - /dev/snd
+      # - /dev/dri
+    group_add:
+      - audio
+    restart: unless-stopped
+    # Default command is ENTRYPOINT ["sonic-pi"] from your image
+    # profiles control which display stack you use:
+    profiles: ["x11"]  # default profile; switch to "wayland" as needed
+
+  # Optional duplicate service with Wayland profile (same image, different mounts)
+  sonicpi_wayland:
+    image: sonic-pi:4.6.0
+    env_file:
+      - .env
+    container_name: sonicpi-wayland
+    network_mode: "host"
+    environment:
+      TZ: ${TZ:-UTC}
+      PULSE_SERVER: ${PULSE_SERVER}
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+    # QT_QPA_PLATFORM: wayland
+    volumes:
+      - ${XDG_RUNTIME_DIR}/pulse:${XDG_RUNTIME_DIR}/pulse
+      - ${HOME}/.config/pulse:/home/workshop/.config/pulse:ro
+      - ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}:${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}
+    devices:
+      - /dev/snd
+    group_add:
+      - audio
+    restart: unless-stopped
+    profiles: ["wayland"]
