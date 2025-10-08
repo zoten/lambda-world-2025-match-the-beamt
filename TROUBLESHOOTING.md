@@ -40,3 +40,15 @@ pw-jack jack_lsp
 # 6) Optional: RT scheduling helper should be running
 systemctl status rtkit-daemon | sed -n '1,5p'
 ```
+
+## VM troubleshooting
+
+When on a VM you may need to play with virtual sound cards to have your sound
+Here's a list of useful commands
+
+``` bash
+# List your sound devices. You should have at least 1 card with at least 1 subdevice
+aplay -l
+# test your speakers
+speaker-test -t sine
+```
