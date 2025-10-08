@@ -92,14 +92,30 @@ I recommend to reserve 4 cores and at least 4GB of RAM for a smooth experience, 
 
 ### VirtualBox
 
-I created and exported the virtual machine using VirtualBox, so I expect it to work smoothly. However, in my machine I had to set the video mode to `VBoxVGA` to solve a black screen bug.
+I created and exported the virtual machine using VirtualBox 7.0, so I expect it to work smoothly on that version. However, in my machine I had to set the video mode to `VBoxVGA` to solve a black screen bug.
+
+On Apple Silicon M3 (arm64) virtualBox seems not to be working ("Cannot run the machine because its platform architecture x86 is not supported on ARM"). See the UTM section for an alternative.
 
 ### Qemu
 
-If you've already been bitten by VirtualBox bricking your machine, you may want to use Qemu. Here some steps that worked for my colleagues:
+If you've already been bitten by VirtualBox bricking your machine's kernel modules, you may want to use Qemu. Here some steps that worked for my colleagues:
 
 ``` bash
 tar vxf Lambda\ World\ 2025.ova
 qemu-img convert -f vmdk -O qcow2 Lambda\ World\ 2025-disk001.vmdk lambda_world_2025_ws.qcow2
 qemu-system-x86_64 -m 4096 -cpu host -device intel-hda -device hda-duplex -enable-kvm -hda lambda_world_2025_ws.qcow2 -boot c
 ```
+
+### UTM
+
+To run the machine via UTM on Mac:
+
+ * rename the `.ova` file to `.tar`
+ * extract the content
+ * on UTM
+   * Create new virtual machine
+   * EMULATE
+   * Architecture (x86_64)
+   * boot (boot from Drive)
+   * **uncheck** UEFI boot
+   * select the vmdk file
