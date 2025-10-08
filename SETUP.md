@@ -119,3 +119,5 @@ To run the machine via UTM on Mac:
    * boot (boot from Drive)
    * **uncheck** UEFI boot
    * select the vmdk file
+  
+You may need to configure your audio device for the virtual machine (change card) 
