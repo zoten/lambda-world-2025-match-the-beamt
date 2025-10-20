@@ -8,6 +8,8 @@ The workshop can be followed via different means. What we basically need from ev
  * a fairly modern [Elixir](https://elixir-lang.org/) installation (the workshop's code has been written using 1.18.4-otp27)
  * your editor of choice, better if supporting Elixir (the workshop's code has been written using [VSCodium](https://vscodium.com/))
 
+Optionally but recommended, for the final part of the workshop, a NTP client could be a nice to have. You can find instructions on how to set it for the workshop at [NTP.md](./NTP.md)
+
 This can be achieved using different combinations of tools.
 
 > ⚠️ **Security disclaimer** if you're following the workshop live, there will be a moment when we will be all connected in a cluster. While I'm fairly confident we'll all be having fun and be well intentioned, this represent a **high risk security issue**, so my advice is to use containerized, restricted options (containers, virtual machines) for running the Elixir code or bare metal machines that do not contain sensitive data
